@@ -1,0 +1,21 @@
+// Place all the styles related to the GameDirector controller here.
+// They will automatically be included in application.css.
+// You can use Sass (SCSS) here: http://sass-lang.com/
+
+body{
+  background-color: black;
+}
+canvas{
+  //background-image: url('/ninjabackground.jpg');
+  background-image: url('/background.png');
+  background-size: 125%;
+
+  max-width: 1920;
+  max-height: 1080;
+  width: 100%;
+  height: 100%;
+}
+#maincharacter{
+  height: 1002 / 4;
+  width: 2368 / 4;
+}

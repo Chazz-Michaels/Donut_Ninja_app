@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html>
+
+
+<head>
+  <title>Donut Ninja</title>
+</head>
+
+
+<body onload="startGameScreen()">
+<!-- Load all images/ sprite sheets below, then hide them -->
+<canvas id="canvas"></canvas>
+<div id="hidden" style="display:none">
+  <%= image_tag("jumpingkick.png", :id => "jumpingkick") %>
+  <%= image_tag("kenfinal148x70.png", :id => "kenMain") %>
+  <%= image_tag("fireball.png", :id => "fireball") %>
+  <%= image_tag("dragon.png", :id => "dragon") %>
+  <%= image_tag("dragonspritesheet.png", :id => "dragonss") %>
+  <%= image_tag("dragonspriteONFIRE.png", :id => "dragonssONFIRE") %>
+  <%= image_tag("kenEatenByDragon.png", :id => "kenEatenByDragon") %>
+  <%= image_tag("kenLavaBurn.png", :id => "kenLavaBurn") %>
+  <%= image_tag("donut.png", :id => "donut") %>
+  <%= image_tag("lava.png", :id => "lava") %>
+  <%= image_tag("gameoverscreenfinal2.png", :id => "gameoverscreen") %>
+  <%= image_tag("startgamescreen.png", :id => "startgamescreen") %>
+</div>
+
+<%= audio_tag("MainDriveFasterTheme.mp3", :id => "mainThemeFX",
+              :class => "audioplayed", :volume => 0.01) %>
+<%= audio_tag("StartScreenTheme.mp3", :id => "startScreenThemeFX",
+              :class => "audioplayed", :volume => 0.3) %>
+<%= audio_tag("fireballFX.mp3", :id => "fireballFX",
+              :class => "audioplayed", :volume => 0.3) %>
+<%= audio_tag("lowHit2.mp3", :id => "lowHit2FX",
+              :class => "audioplayed", :volume => 0.3) %>
+<%= audio_tag("lowHit3.mp3", :id => "lowHit3FX",
+              :class => "audioplayed", :volume => 0.3) %>
+<%= audio_tag("trillHit.mp3", :id => "trillFX",
+              :class => "audioplayed", :volume => 0.3) %>
+
+
+
+<script>
+
+//=== Create Canvas ===//
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+canvas.width = screen.width;
+canvas.height = screen.height - [screen.height * 0.1];
+
+document.addEventListener("keydown", keyDownHandler, false);
+document.addEventListener("keyup", keyUpHandler, false);
+
+//--------------------------------------------//
+// GLOBAL VARIABLES, LOAD IMAGES, LOAD AUDIOS //
+//--------------------------------------------//
+var gameOver = false;
+//Ken = main character. Why Ken, you ask? I don't really know.
+//just inspired by Street Fighter despite choosing Mortal Kombat
+//character to be Ken. Brownie points if you know the MK character.
+var ken;
+//Ken's location (400,50) = start position
+var kenX = 400;
+var kenY = 50;
+//Where Ken's feet first meet the lava
+var kenYFloor = 780;
+//Where Ken hits his forehead on the ceiling
+var kenYCeiling = -10;
+//how fast ken comes down/ goes up
+var kenFallSpeed = 8;
+var kenJumpSpeed = 12;
+//for tracking kens shot bullets across screen
+var kenProjectileX = -5000;
+var kenProjectileY = -5000;
+//fireball tracking
+var bulletFrame = 0;
+var bulletSpeed = 14;
+//for button input listening and move control
+var keyPress = false;
+//Button input move variables
+var jump = false;
+var shoot = false;
+var bulletGo = false;
+var defken = true;
+//zero is a special variable for ken's bullet animation to travel
+//across screen. used as argument of fireProjectile(zero)
+var zero = 0;
+//Ken interaction with environment variables
+var kenAlive = true;
+var kenEaten = false;
+var kenBurn = false;
+var kenCrashDonut = false;
+var kenHitCeiling = false;
+// lava variables
+var lavaFrame = 0;
+var lavaWidth = canvas.width;
+var lavaHeight = 100;
+// Dragon variables (enemyX,enemyY) represent Dragon location
+var enemyX = [canvas.width + 5000];
+var enemyY = Math.random()*([canvas.height - 350] - 0) + 0;
+var enemyFrame = 0;
+var spriteW = 96;
+var dragonSpeed = 14;
+var dragonAlive = true;
+var dragonHit = false;
+//logonce is a counter variable to make sure when Ken dies in lava
+//the console.log only mentions it once instead of many many times
+var logonce = 0;
+//For Audio: Counter Variables that ensure one-time audio event FX only play once
+var fireballFXonceCounter = 0;
+var trillFXonceCounter = 0;
+var lowHit2FXonceCounter = 0;
+var lowHit3FXonceCounter = 0;
+//=== Load Moves Sprite Sheet Image PNG Files from hidden <div>
+//jumpKen sprite sheet is 135W x 70H with 2 frames
+//so each frame is 67.5W by 70H - this is why you will see
+//the ken.pixLeft value changed between 0 and 67.5
+//at the end/beginning of shoot animation functions
+var jumpKen = document.getElementById("kenMain");
+var fireball = document.getElementById("fireball");
+var dragon = document.getElementById("dragon");
+var donut = document.getElementById("donut");
+var lava = document.getElementById("lava");
+//dragonss Sprite Sheet will use second row, pixels 96w x 96h
+//sprite sheet starts at (0px,96px)
+var dragonss = document.getElementById("dragonss");
+var dragonssONFIRE = document.getElementById("dragonssONFIRE");
+var kenEatenByDragon = document.getElementById("kenEatenByDragon");
+var kenLavaBurn = document.getElementById("kenLavaBurn");
+var gameoverscreen = document.getElementById("gameoverscreen");
+var startgamescreen = document.getElementById("startgamescreen");
+var sgbutton = document.getElementById("sgbutton");
+
+
+//Sound FX and Theme Song
+var mainThemeFX = document.getElementById("mainThemeFX");
+var startScreenThemeFX = document.getElementById("startScreenThemeFX");
+var fireballFX = document.getElementById("fireballFX");
+var lowHit2FX = document.getElementById("lowHit2FX");
+var lowHit3FX = document.getElementById("lowHit3FX");
+var trillFX = document.getElementById("trillFX");
+//Volume Control
+mainThemeFX.volume = 0.2;
+startScreenThemeFX.volume = 0.2;
+fireballFX.volume = 0.8;
+lowHit2FX.volume = 0.9;
+lowHit3FX.volume = 0.9;
+trillFX.volume = 0.2;
+
+
+
+//=============================================================//
+//===   BUTTON INPUT HANDLING AND GAME CONTROLS             ===//
+//=============================================================//
+
+      // key codes:
+      // 32 = spacebar = jump
+      // 88 = x = shoot
+
+
+    //====== Handlers to control keyboard input =============================//
+      function keyDownHandler(e){
+        if(e.keyCode == 32){
+            keyPress = true;
+            jump = true;
+            defken = false;
+        }
+        if(e.keyCode == 88){
+            keyPress = true;
+            shoot = true;
+            bulletGo = false;
+            bulletFrame = 0;
+            kenProjectileX = kenX + 12;
+            kenProjectileY = kenY + 20;
+            defken = false;
+        }
+      }
+
+      function keyUpHandler(e){
+        if(e.keyCode == 32){
+            keyPress = false;
+            jump = false;
+            defken = true;
+        }
+        if(e.keyCode == 88){
+            keyPress = false;
+            shoot = false;
+            bulletGo = true;
+            bulletFrame = 1;
+            fireballFXonceCounter = 0;
+          //  kenProjectileX = kenX + 12;
+          //  kenProjectileY = kenY + 20;
+            defken = true;
+        }
+      }
+
+
+
+
+//some constant variables for Ken. This constructor had more tasks
+//previously but I suppose I could work it out of the code at this point
+function Kenstructor(pixLeft, pixTop, spriteSheetWidth,
+                    spriteSheetHeight, kenWidth, kenHeight){
+  this.pixLeft = pixLeft;
+  this.pixTop = pixTop;
+  this.spriteSheetWidth = spriteSheetWidth;
+  this.spriteSheetHeight = spriteSheetHeight;
+  this.kenWidth = kenWidth;
+  this.kenHeight = kenHeight;
+}
+ken = new Kenstructor(0, 0, 74, 70, (74*1.4), (70*1.4));
+
+
+
+//==========================================================================//
+// Draw functions begin
+//==========================================================================//
+
+//Draw Ken
+function drawKen(kenX, kenY){
+ctx.drawImage(
+  jumpKen,
+  ken.pixLeft,
+  ken.pixTop,
+  ken.spriteSheetWidth,
+  ken.spriteSheetHeight,
+  kenX,
+  kenY,
+  ken.kenWidth,
+  ken.kenHeight);
+}
+
+//Ken's load fireball and shoot fireball animations
+function fireLoad(){
+  kenProjectileX = kenX + 40;
+  kenProjectileY = kenY + 20;
+  ctx.drawImage(fireball, kenProjectileX, kenProjectileY, 72, 55);
+}
+
+function fireProjectile(){
+  //fireball image is 72px width by 55px height
+  ctx.drawImage(fireball, kenProjectileX, kenProjectileY, 72, 55);
+  kenProjectileX += bulletSpeed;
+  if(fireballFXonceCounter == 0){
+    fireballFX.currentTime = 0;
+    fireballFX.play();
+  }
+  fireballFXonceCounter++;
+  if(kenProjectileX > [canvas.width + 10]){
+    bulletGo = false;
+    kenProjectileX = -500;
+    fireballFXonceCounter = 0;
+  }
+}
+
+//When Ken hits the Lava and burns
+function kenBurnToDeath(){
+  ctx.drawImage(kenLavaBurn, 80, 0, 80, 116, kenX, kenY, [screen.width*[1/16]], [screen.height*[2/16]]);
+  kenY += 0.5;
+  logonce++;
+  if(kenY >= kenYFloor){
+    gameOver = true;
+  }
+  if(logonce == 1 & gameOver == true){
+    console.log("Ken hit lava and died");
+  }
+  if(trillFXonceCounter == 0){
+    trillFX.currentTime = 0;
+    trillFX.play();
+  }
+  trillFXonceCounter++;
+}
+
+//function for when Ken hits the ceiling and gets pushed back down
+function kenHitTopSoPushDown(){
+  if(kenY < 100){
+    defken = true;
+    jump = false;
+    drawKen(kenX, kenY);
+    kenY += kenFallSpeed;
+  }
+  if(kenY > 100){
+    kenHitCeiling = false;
+    defken = true;
+    return;
+  }
+}
+
+
+
+//===================== Make the Lava =================================//
+
+function drawLava(){
+  ctx.drawImage(lava, 0, [canvas.height - lavaHeight], lavaWidth, lavaHeight);
+  lavaFrame++;
+
+  if(lavaFrame == 10 ||
+     lavaFrame == 20 ||
+     lavaFrame == 30){
+    lavaWidth = canvas.width + 1;
+    lavaHeight += (Math.random()*2);
+    lavaFrame++;
+  }
+  if(lavaFrame == 40 ||
+     lavaFrame == 50){
+    lavaWidth = canvas.width;
+    lavaHeight -= (Math.random()*2);
+  }
+  if(lavaFrame == 60){
+    lavaWidth = canvas.width;
+    lavaHeight -= (Math.random()*2);
+    lavaFrame = 0;
+  }
+  if(lavaHeight > 110 || lavaHeight < 90){
+    lavaHeight = 100;
+    lavaFrame = 0;
+  }
+
+}
+
+//============== Make a dragon ===================================//
+
+function drawDragon(){
+  ctx.drawImage(dragonss, spriteW, 96, 96, 96, enemyX, enemyY, 94*2, 84*2);
+  enemyFrame++;
+  enemyX -= dragonSpeed;
+
+  if(enemyFrame % 5 === 0 && enemyFrame % 2 !== 0){
+    enemyY += (Math.random()*4);
+    enemyFrame++;
+  }
+  if(enemyFrame % 2 === 0 && enemyFrame % 5 === 0){
+    enemyY -= (Math.random()*4);
+    enemyFrame++;
+
+  }
+  if(enemyX <= [-500]){
+    enemyX = [canvas.width + 5000];
+    enemyY = Math.random()*([canvas.height - 350] - 0) + 0;
+    enemyFrame = 0;
+  }
+  if(spriteW == 384){
+    spriteW = 0;
+    enemyY -= 4;
+    ctx.drawImage(dragonss, spriteW, 96, 96, 96, enemyX, enemyY, 94*2, 84*2);
+    enemyFrame++;
+  }
+  if(enemyFrame % 8 === 0){
+    spriteW += 96;
+  //  console.log(enemyX);
+  }
+}
+
+//This is the start of the animation when the dragon is hit by Ken's fireball
+function dragonDie(){
+  ctx.drawImage(dragonssONFIRE, spriteW, 96, 96, 96, enemyX, enemyY, 94*2, 84*2);
+  enemyFrame++;
+  enemyY += dragonSpeed;
+  if(lowHit3FXonceCounter == 0){
+    lowHit3FX.currentTime = 0;
+    lowHit3FX.play();
+  }
+  lowHit3FXonceCounter++;
+  if(enemyFrame % 8 === 0){
+    spriteW += 96;
+  //  console.log(enemyX);
+  }
+  if(spriteW == 384){
+    spriteW = 0;
+    enemyX += 4;
+    enemyY += 4;
+    ctx.drawImage(dragonssONFIRE, spriteW, 96, 96, 96, enemyX, enemyY, 94*2, 84*2);
+    enemyFrame++;
+  }
+  if(enemyY >= canvas.height){
+    enemyFrame = 0;
+    enemyX = [canvas.width + 5000];
+    enemyY = Math.random()*([canvas.height - 350] - 0) + 0;
+    dragonHit = false;
+    dragonAlive = true;
+    lowHit3FXonceCounter = 0;
+    kenProjectileX = -5000;
+    kenProjectileY = -5000;
+  }
+}
+
+//Ken gets eaten by Dragon
+function dragonEatKen(){
+  ctx.drawImage(kenEatenByDragon, 0, 0, 116, 116, enemyX, enemyY, 94*2, 84*2);
+  enemyFrame++;
+  enemyX -= (dragonSpeed - 2);
+  enemyY += 2;
+  if(lowHit2FXonceCounter == 0){
+    lowHit2FX.currentTime = 0;
+    lowHit2FX.play();
+  }
+  lowHit2FXonceCounter++;
+
+  if(enemyX <= [-250]){
+    enemyFrame = 0;
+    kenEaten = false;
+    gameOver = true;
+    lowHit2FXonceCounter = 0;
+  }
+}
+
+
+//=============== DRAW DONUTS ==================================//
+
+//var topDonutWidth = 270;
+//var topDonutHeight = 270;
+var topDonutSpeed = 16;
+var topDonut1Width = Math.random()*(300-175)+175;
+var topDonut1Height = topDonut1Width;
+var topDonut2Width = Math.random()*(300-175)+175;
+var topDonut2Height = topDonut2Width;
+var topDonut3Width = Math.random()*(300-175)+175;
+var topDonut3Height = topDonut3Width;
+var topDonut4Width = Math.random()*(300-175)+175;
+var topDonut4Height = topDonut4Width;
+//At start of game, the X,Y values are set this way
+ var donut1X = [canvas.width + 250];
+ var donut1Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+ var donut2X = [(canvas.width + 250) + (canvas.width * 0.34)];
+ var donut2Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+ var donut3X = [(canvas.width + 250) + (canvas.width * 0.34 * 2)];
+ var donut3Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+ var donut4X = [(canvas.width + 250) + (canvas.width * 0.34 * 3)];
+ var donut4Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+
+//Collision detection radius for top donuts 1 - 4
+//formula is: Math.sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0)) < r
+//where (x0,y0)= center position for circle and
+//(x1,y1)= kenX and kenY
+//kenX and kenY must be padded by enough px to equal Ken's rightmost side
+  var donut1Collide = false;
+  var radiusDonut1;
+  var centerDonut1X;
+  var centerDonut1Y;
+  var collDetectDonut1;
+
+  var donut2Collide = false;
+  var radiusDonut2;
+  var centerDonut2X;
+  var centerDonut2Y;
+  var collDetectDonut2;
+
+  var donut3Collide = false;
+  var radiusDonut3;
+  var centerDonut3X;
+  var centerDonut3Y;
+  var collDetectDonut3;
+
+  var donut4Collide = false;
+  var radiusDonut4;
+  var centerDonut4X;
+  var centerDonut4Y;
+  var collDetectDonut4;
+
+
+
+function drawDonutsTop(){
+//There are 4 donuts that will be drawn, then reset
+//and they will cycle continuously until game ends
+
+  radiusDonut1 = (topDonut1Height/2);
+  centerDonut1X = (donut1X + radiusDonut1);
+  centerDonut1Y = (donut1Y + radiusDonut1);
+  collDetectDonut1 = Math.sqrt(((kenX+70)-centerDonut1X)*((kenX+70)-centerDonut1X) + ((kenY+66)-centerDonut1Y)*((kenY+66)-centerDonut1Y));
+  radiusDonut2 = (topDonut2Height/2);
+  centerDonut2X = (donut2X + radiusDonut2);
+  centerDonut2Y = (donut2Y + radiusDonut2);
+  collDetectDonut2 = Math.sqrt(((kenX+70)-centerDonut2X)*((kenX+70)-centerDonut2X) + ((kenY+66)-centerDonut2Y)*((kenY+66)-centerDonut2Y));
+  radiusDonut3 = (topDonut3Height/2);
+  centerDonut3X = (donut3X + radiusDonut3);
+  centerDonut3Y = (donut3Y + radiusDonut3);
+  collDetectDonut3 = Math.sqrt(((kenX+70)-centerDonut3X)*((kenX+70)-centerDonut3X) + ((kenY+66)-centerDonut3Y)*((kenY+66)-centerDonut3Y));
+  radiusDonut4 = (topDonut4Height/2);
+  centerDonut4X = (donut4X + radiusDonut4);
+  centerDonut4Y = (donut4Y + radiusDonut4);
+  collDetectDonut4 = Math.sqrt(((kenX+70)-centerDonut4X)*((kenX+70)-centerDonut4X) + ((kenY+66)-centerDonut4Y)*((kenY+66)-centerDonut4Y));
+
+//If leftmost X coord of donut hits -250px (so whole
+//donut is off screen), reset donut's X,Y coords to
+//just off the right side of screen + 1/3 ofS
+//the screen's distance to the right of the donut
+//to be drawn/entering screen just before it
+  if(donut1X < [-250]){
+    donut1X = [donut4X + ((canvas.width + 250)*0.34)];
+    donut1Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+    topDonut1Width = Math.random()*(300-175)+175;
+    topDonut1Height = topDonut1Width;
+  }
+  if(donut2X < [-250]){
+    donut2X = [donut1X + ((canvas.width + 250)*0.34)];
+    donut2Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+    topDonut2Width = Math.random()*(300-175)+175;
+    topDonut2Height = topDonut2Width;
+  }
+  if(donut3X < [-250]){
+    donut3X = [donut2X + ((canvas.width + 250)*0.34)];
+    donut3Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+    topDonut3Width = Math.random()*(300-175)+175;
+    topDonut3Height = topDonut3Width;
+  }
+  if(donut4X < [-250]){
+    donut4X = [donut3X + ((canvas.width + 250)*0.34)];
+    donut4Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+    topDonut4Width = Math.random()*(300-175)+175;
+    topDonut4Height = topDonut4Width;
+  }
+
+
+
+//Collision Detection for Ken colliding with top row of Donuts
+  if(collDetectDonut1 <= radiusDonut1){
+    donut1Collide = true;
+    console.log("donut1 collision with ken");
+    kenCrashDonut = true;
+    kenX -= topDonutSpeed;
+  }
+  if(collDetectDonut2 <= radiusDonut2){
+    donut2Collide = true;
+    console.log("donut2 collision with ken");
+    kenCrashDonut = true;
+    kenX -= topDonutSpeed;
+  }
+  if(collDetectDonut3 <= radiusDonut3){
+    donut3Collide = true;
+    console.log("donut3 collision with ken");
+    kenCrashDonut = true;
+    kenX -= topDonutSpeed;
+  }
+  if(collDetectDonut4 <= radiusDonut4){
+    donut4Collide = true;
+    console.log("donut4 collision with ken");
+    kenCrashDonut = true;
+    kenX -= topDonutSpeed;
+  }
+
+
+
+//Draw the donuts
+  function drawD1(){
+      ctx.drawImage(donut, donut1X, donut1Y, topDonut1Width, topDonut1Height);
+      donut1X -= topDonutSpeed;
+  }
+  function drawD2(){
+  //  console.log(donut2X);
+      ctx.drawImage(donut, donut2X, donut2Y, topDonut2Width, topDonut2Height);
+      donut2X -= topDonutSpeed;
+  }
+  function drawD3(){
+      ctx.drawImage(donut, donut3X, donut3Y, topDonut3Width, topDonut3Height);
+      donut3X -= topDonutSpeed;
+  }
+  function drawD4(){
+      ctx.drawImage(donut, donut4X, donut4Y, topDonut4Width, topDonut4Height);
+      donut4X -= topDonutSpeed;
+  }
+  drawD1();
+  drawD2();
+  drawD3();
+  drawD4();
+}
+
+//=== BOTTOM DONUT STARTS HERE======================================//
+
+var bottomDonutSpeed = 16;
+var bottomDonut1Width = Math.random()*(300-175)+175;
+var bottomDonut1Height = bottomDonut1Width;
+var bottomDonut2Width = Math.random()*(300-175)+175;
+var bottomDonut2Height = bottomDonut2Width;
+var bottomDonut3Width = Math.random()*(300-175)+175;
+var bottomDonut3Height = bottomDonut3Width;
+var bottomDonut4Width = Math.random()*(300-175)+175;
+var bottomDonut4Height = bottomDonut4Width;
+// one sixth of the screen is 318 px to make bottom donuts exactly
+//in between x values of bottom donuts
+
+//At start of game, the X values are set this way
+ var donut1Xb = [canvas.width + 250 + 318];
+ var donut1Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+ var donut2Xb = [(canvas.width + 250 + 318) + (canvas.width * 0.34)];
+ var donut2Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+ var donut3Xb = [(canvas.width + 250 + 318) + (canvas.width * 0.34 * 2)];
+ var donut3Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+ var donut4Xb = [(canvas.width + 250 + 318) + (canvas.width * 0.34 * 3)];
+ var donut4Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+
+
+ //Collision detection radius for bottom donuts 1 - 4
+ //formula is: Math.sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0)) < r
+ //where (x0,y0)= center position for circle and
+ //(x1,y1)= kenX and kenY
+ //kenX and kenY must be padded by enough px to equal Ken's rightmost side
+   var donut1bCollide = false;
+   var radiusDonut1b;
+   var centerDonut1Xb;
+   var centerDonut1Yb;
+   var collDetectDonut1b;
+
+   var donut2bCollide = false;
+   var radiusDonut2b;
+   var centerDonut2Xb;
+   var centerDonut2Yb;
+   var collDetectDonut2b;
+
+   var donut3bCollide = false;
+   var radiusDonut3b;
+   var centerDonut3Xb;
+   var centerDonut3Yb;
+   var collDetectDonut3b;
+
+   var donut4bCollide = false;
+   var radiusDonut4b;
+   var centerDonut4Xb;
+   var centerDonut4Yb;
+   var collDetectDonut4b;
+
+
+
+function drawDonutsBottom(){
+//This whole function is drawDonutsTop() copied exactly, then altered
+//so (X,Y) values changed to (Xb,Yb) b=bottom and donuts run along
+//bottom half of screen based on Math.random bounds
+
+  radiusDonut1b = (bottomDonut1Height/2);
+  centerDonut1Xb = (donut1Xb + radiusDonut1b);
+  centerDonut1Yb = (donut1Yb + radiusDonut1b);
+  collDetectDonut1b = Math.sqrt(((kenX+70)-centerDonut1Xb)*((kenX+70)-centerDonut1Xb) + ((kenY+64)-centerDonut1Yb)*((kenY+64)-centerDonut1Yb));
+
+  radiusDonut2b = (bottomDonut2Height/2);
+  centerDonut2Xb = (donut2Xb + radiusDonut2b);
+  centerDonut2Yb = (donut2Yb + radiusDonut2b);
+  collDetectDonut2b = Math.sqrt(((kenX+70)-centerDonut2Xb)*((kenX+70)-centerDonut2Xb) + ((kenY+64)-centerDonut2Yb)*((kenY+64)-centerDonut2Yb));
+
+  radiusDonut3b = (bottomDonut3Height/2);
+  centerDonut3Xb = (donut3Xb + radiusDonut3b);
+  centerDonut3Yb = (donut3Yb + radiusDonut3b);
+  collDetectDonut3b = Math.sqrt(((kenX+70)-centerDonut3Xb)*((kenX+70)-centerDonut3Xb) + ((kenY+64)-centerDonut3Yb)*((kenY+64)-centerDonut3Yb));
+
+  radiusDonut4b = (bottomDonut4Height/2);
+  centerDonut4Xb = (donut4Xb + radiusDonut4b);
+  centerDonut4Yb = (donut4Yb + radiusDonut4b);
+  collDetectDonut4b = Math.sqrt(((kenX+70)-centerDonut4Xb)*((kenX+70)-centerDonut4Xb) + ((kenY+64)-centerDonut4Yb)*((kenY+64)-centerDonut4Yb));
+
+
+
+  if(donut1Xb < [-250]){
+    donut1Xb = [donut4Xb + ((canvas.width + 250)*0.34)];
+    donut1Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+    bottomDonut1Width = Math.random()*(300-175)+175;
+    bottomDonut1Height = bottomDonut1Width;
+  }
+  if(donut2Xb < [-250]){
+    donut2Xb = [donut1Xb + ((canvas.width + 250)*0.34)];
+    donut2Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+    bottomDonut2Width = Math.random()*(300-175)+175;
+    bottomDonut2Height = bottomDonut2Width;
+  }
+  if(donut3Xb < [-250]){
+    donut3Xb = [donut2Xb + ((canvas.width + 250)*0.34)];
+    donut3Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+    bottomDonut3Width = Math.random()*(300-175)+175;
+    bottomDonut3Height = bottomDonut3Width;
+  }
+  if(donut4Xb < [-250]){
+    donut4Xb = [donut3Xb + ((canvas.width + 250)*0.34)];
+    donut4Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+    bottomDonut4Width = Math.random()*(300-175)+175;
+    bottomDonut4Height = bottomDonut4Width;
+  }
+
+  //Collision Detection for Ken colliding with top row of Donuts
+    if(collDetectDonut1b <= radiusDonut1b){
+      donut1bCollide = true;
+      console.log("donut1b collision with ken");
+      kenCrashDonut = true;
+      kenX -= bottomDonutSpeed;
+    }
+    if(collDetectDonut2b <= radiusDonut2b){
+      donut2bCollide = true;
+      console.log("donut2b collision with ken");
+      kenCrashDonut = true;
+      kenX -= bottomDonutSpeed;
+    }
+
+    if(collDetectDonut3b <= radiusDonut3b){
+      donut3bCollide = true;
+      console.log("donut3b collision with ken");
+      kenCrashDonut = true;
+      kenX -= bottomDonutSpeed;
+    }
+    if(collDetectDonut4b <= radiusDonut4b){
+      donut4bCollide = true;
+      console.log("donut4b collision with ken");
+      kenCrashDonut = true;
+      kenX -= bottomDonutSpeed;
+    }
+
+
+//Draw the donuts
+  function drawD1b(){
+      ctx.drawImage(donut, donut1Xb, donut1Yb, bottomDonut1Width, bottomDonut1Height);
+      donut1Xb -= bottomDonutSpeed;
+  }
+  function drawD2b(){
+  //  console.log(donut2X);
+      ctx.drawImage(donut, donut2Xb, donut2Yb, bottomDonut2Width, bottomDonut2Height);
+      donut2Xb -= bottomDonutSpeed;
+  }
+  function drawD3b(){
+      ctx.drawImage(donut, donut3Xb, donut3Yb, bottomDonut3Width, bottomDonut3Height);
+      donut3Xb -= bottomDonutSpeed;
+  }
+  function drawD4b(){
+      ctx.drawImage(donut, donut4Xb, donut4Yb, bottomDonut4Width, bottomDonut4Height);
+      donut4Xb -= bottomDonutSpeed;
+  }
+  drawD1b();
+  drawD2b();
+  drawD3b();
+  drawD4b();
+}
+
+//=== Game Over ================================================//
+function gameOverScreen(){
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(gameoverscreen, [(canvas.width/2)-320], [(canvas.height/2)-200]);
+  mainThemeFX.pause();
+  startScreenThemeFX.loop = true;
+//  startScreenThemeFX.load();
+  startScreenThemeFX.play();
+  if(kenBurn == true){
+    ctx.drawImage(kenLavaBurn, 80, 0, 80, 116, kenX, kenY, [screen.width*[1/16]], [screen.height*[2/16]]);
+    kenY += 0.5;
+  }
+  if(gameOver == true){
+  document.addEventListener("click", newGame, false);
+
+  function newGame(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    gameOver = false;
+    kenAlive = true;
+    ken.pixLeft = 74;
+    kenX = 400;
+    kenY = 50;
+    kenBurn = false;
+    kenEaten = false;
+    kenCrashDonut = false;
+    dragonHit = false;
+    dragonAlive = true;
+    topDonutSpeed = 16;
+    bottomDonutSpeed = 16;
+    //logonce makes sure console log of "ken hit lava and died"
+    //only runs once in console so console log isn't confusing
+    logonce = 0;
+    score = 0;
+
+    //reset Ken burning to death in lava sound fx counter variable
+    trillFXonceCounter = 0;
+    //Music
+    startScreenThemeFX.pause();
+    mainThemeFX.loop = true;
+    mainThemeFX.currentTime = 0;
+    mainThemeFX.play();
+
+    //At start of game, the X values are set this way
+     donut1X = [canvas.width + 250];
+     donut1Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+     donut2X = [(canvas.width + 250) + (canvas.width * 0.34)];
+     donut2Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+     donut3X = [(canvas.width + 250) + (canvas.width * 0.34 * 2)];
+     donut3Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+     donut4X = [(canvas.width + 250) + (canvas.width * 0.34 * 3)];
+     donut4Y = Math.random()*([(canvas.height/2) - 150] - 0) + 0;
+     donut1Xb = [canvas.width + 250 + 318];
+     donut1Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+     donut2Xb = [(canvas.width + 250 + 318) + (canvas.width * 0.34)];
+     donut2Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+     donut3Xb = [(canvas.width + 250 + 318) + (canvas.width * 0.34 * 2)];
+     donut3Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+     donut4Xb = [(canvas.width + 250 + 318) + (canvas.width * 0.34 * 3)];
+     donut4Yb = Math.random()*((canvas.height - 320) - (canvas.height/2)) + (canvas.height/2);
+
+    if(logonce == 0){
+      console.log("Start new game");
+    }
+    logonce++;
+    document.removeEventListener("click", newGame, false);
+    animate();
+  }
+  }
+}
+
+//=== Start the Game ================================================//
+function startGameScreen(){
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(startgamescreen, [(canvas.width/2)-425], [(canvas.height/2)-265]);
+  drawLava();
+  startScreenThemeFX.loop = true;
+  startScreenThemeFX.play();
+  if(logonce == 0){
+  console.log("Start first game");
+  }
+  logonce++;
+  document.addEventListener("click", doGame, false);
+  function doGame(){
+    document.removeEventListener("click", doGame, false);
+    logonce = 0;
+    startScreenThemeFX.pause();
+    mainThemeFX.loop = true;
+    mainThemeFX.play();
+    animate();
+  }
+}
+
+//=== Score Counter ==================================================//
+var score = 0;
+curFrame = 0;
+var bestScore = 0;
+
+function scoreCounter(){
+  ctx.font = "35px Mono";
+  ctx.fillStyle = "#0095DD";
+  ctx.fillText("score: " + score, 20, 40);
+  if(curFrame % 5 == 0){
+    curFrame = 0;
+    score += 1;
+  }
+  if(gameOver == true){
+    score = score;
+    curFrame = 0;
+    function gameOverScore(){
+      ctx.font = "35px Mono";
+      ctx.fillStyle = "white";
+      ctx.fillText(score, 1000, 542);
+      if(score > bestScore){
+        bestScore = score;
+        ctx.fillText(bestScore, 1000, 600);
+      }else{
+        ctx.fillText(bestScore, 1000, 600);
+      }
+    }
+    gameOverScore();
+  }
+  curFrame++;
+}
+
+
+
+
+//===================== ANIMATE GAME LOOP ====================================//
+
+//variables to control FPS with RAF
+var fps, fpsInterval, startTime, now, then, elapsed;
+fps = 30;
+fpsInterval = 1000 / fps;
+then = Date.now();
+startTime = then;
+donutFrame = 0;
+//curFrame helps the score counter function properly
+var curFrame = 1;
+
+
+function animate(){
+
+  // calc elapsed time since last loop
+  now = Date.now();
+  elapsed = now - then;
+  // if enough time has elapsed, do stuff below
+  if (elapsed > fpsInterval) {
+    // Get ready for next frame by setting then=now, but also adjust for
+    // specified fpsInterval not being a multiple of RAF's interval (16.7ms)
+    then = now - (elapsed % fpsInterval);
+
+    //================================//
+    //=== Animate code begins here ===//
+    //================================//
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+//Game Difficulty Controls = speed of the donuts, how and when they change
+//these are purposely written very spread out and redundantly so they can be
+//easily adjusted many different ways from here in future
+    if(score > 50){
+      topDonutSpeed = 18;
+      bottomDonutSpeed = 18;
+    }
+    if(score > 100){
+      topDonutSpeed = 20;
+      bottomDonutSpeed = 20;
+    }
+    if(score > 150){
+      topDonutSpeed = 22;
+      bottomDonutSpeed = 22;
+    }
+    if(score > 200){
+      topDonutSpeed = 24;
+      bottomDonutSpeed = 24;
+    }
+    if(score > 250){
+      topDonutSpeed = 26;
+      bottomDonutSpeed = 26;
+    }
+    if(score > 300){
+      topDonutSpeed = 28;
+      bottomDonutSpeed = 28;
+    }
+    if(score > 350){
+      topDonutSpeed = 30;
+      bottomDonutSpeed = 30;
+    }
+    if(score > 400){
+      topDonutSpeed = 32;
+      bottomDonutSpeed = 32;
+    }
+    if(score > 450){
+      topDonutSpeed = 34;
+      bottomDonutSpeed = 34;
+    }
+    if(score > 500){
+      topDonutSpeed = 36;
+      bottomDonutSpeed = 36;
+    }
+    if(score > 600){
+      topDonutSpeed = 40;
+      bottomDonutSpeed = 40;
+    }
+//--------------------------------------------------//
+
+    drawDonutsTop();
+    drawDonutsBottom();
+
+
+    if(gameOver == true){
+      gameOverScreen();
+    }
+    //if Ken collides with a Dragon
+    if((kenX+70) >= enemyX && (kenX+70) <= (enemyX + 148) &&
+       (kenY+60) >= enemyY && (kenY+60) <= (enemyY + 158)){
+         console.log("Ken was eaten by a dragon");
+         kenEaten = true;
+         kenAlive = false;
+       }
+    //if Ken collides with Lava
+    if(kenY >= kenYFloor || kenBurn == true){
+        kenBurn = true;
+        kenAlive = false;
+        kenBurnToDeath();
+          }
+    //if Ken goes off screen left because he crashed into a donut
+    if(kenX < -100){
+      kenX = -100;
+      kenAlive = false;
+      gameOver = true;
+    }
+    if(kenAlive == true){
+      drawKen(kenX, kenY);
+    }
+    if(kenEaten == true){
+      //dragonAlive is the default dragon animation so it must be set
+      //to false in order for dragonEatKen() animation to be drawn alone
+      dragonAlive = false;
+      dragonEatKen();
+    }
+
+
+
+//=== Ken's movement logic when no buttons are pressed ======//
+    if(defken == true){
+      ken.pixLeft = 74;
+      if(kenY < kenYFloor && kenY >= kenYCeiling && defken == true && kenEaten == false){
+        kenY += kenFallSpeed;
+      }
+      if(kenY <= kenYCeiling && defken == true){
+      //  kenY = kenYCeiling;
+      }
+      if(kenY >= kenYFloor && defken == true){
+      //  kenY = kenYFloor;
+      kenBurn = true;
+      kenAlive = false;
+      }
+    }
+//=== Ken's movement when Jump is pressed ===================//
+    if(jump == true && kenY >= kenYCeiling && kenHitCeiling == false){
+      ken.pixLeft = 74;
+      kenY -= kenJumpSpeed;
+    }
+    if(kenY <= kenYCeiling){
+      kenY = kenYCeiling;
+      jump = false;
+      kenHitCeiling = true;
+    }
+
+    if(jump == true && shoot == true){
+      ken.pixLeft = 74;
+      fireLoad();
+    }
+//If Ken hits his head on the ceiling
+    if(kenY <= kenYCeiling){
+      kenHitCeiling = true;
+      jump = false;
+    }
+    if(kenHitCeiling == true){
+      kenHitTopSoPushDown();
+    }
+
+//=== Ken's movement when Shoot is pressed ==================//
+    if(shoot == true && jump != true){
+      ken.pixLeft = 0;
+      fireLoad();
+      if(kenY < kenYFloor && shoot == true){
+        kenY += kenFallSpeed;
+      }
+      if(kenY <= kenYCeiling && shoot == true){
+        kenY = kenYCeiling;
+      }
+      if(kenY >= kenYFloor && shoot == true){
+        kenY = kenYFloor;
+      }
+    }
+    if(bulletGo == true){
+      fireProjectile();
+    }
+//===========================================================//
+//draw Lava
+    drawLava();
+
+//If Ken's Fireball collides with Dragon
+    if(kenProjectileX >= enemyX && kenProjectileX <= (enemyX + 188) &&
+       kenProjectileY >= enemyY && kenProjectileY <= (enemyY + 128)){
+         console.log("Ken slayed dragon with fireball");
+         dragonHit = true;
+         score += 10;
+         dragonAlive = false;
+         bulletGo = false;
+       }
+    if(dragonAlive == true){
+      drawDragon();
+    }
+    if(dragonHit == true){
+      dragonDie();
+      kenX += 1;
+    }
+
+    scoreCounter();
+
+
+  //bracket ends the if statement that wraps the entire draw code
+  }
+  requestAnimationFrame(animate);
+//bracket animate end
+}
+
+startGameScreen();
+
+</script>
+
+</body>
+
+</html>
