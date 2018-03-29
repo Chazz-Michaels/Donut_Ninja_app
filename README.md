@@ -1,4 +1,5 @@
 # README
+PLAY: donut-ninja.herokuapp.com
 
 Welcome to Donut Ninja. This game will help you learn that you
 cannot avoid donuts forever because they are just too good.
@@ -24,7 +25,7 @@ when Ken comes into contact with Lava, or with Dragon.
 Note:
 This game is built almost exclusively with Javascript. This is my
 first project and I built everything, including the engine, myself-
-I am working on removing any bugs I find and optimizing the code. Any
+I am always working on removing any bugs I find and optimizing the code. Any
 help/feedback is appreciated.
 
 
